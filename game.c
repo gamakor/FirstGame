@@ -28,6 +28,7 @@ typedef struct Enemy
 typedef struct GameState
 {
     /* data */
+    float gameTime;
     Vector2 playerPos;
     float playerSize;
     float playerSpeed;
@@ -41,6 +42,8 @@ typedef struct GameState
     int projectileCount;
     Projectile projectiles[MAX_PROJECTILES];
 
+    float spawnTime;
+  
     int enemyCount;
     Enemy Enemies[MAX_ENEMIES];
 
@@ -68,6 +71,8 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+       gameState.gameTime += GetFrameTime();
+
         BeginDrawing();
         ClearBackground(BLACK);
 
@@ -148,8 +153,54 @@ int main(void)
 
                 proj->pos.x += proj->dir.x * proj->speed * GetFrameTime();
                 proj->pos.y += proj->dir.y * proj->speed * GetFrameTime();
-
+ 
                 DrawCircle(proj->pos.x, proj->pos.y, proj->size, YELLOW);
+            }
+        }
+
+        //Update Enemies 
+        {
+            //Spawn Enemies
+            const float spawnFrequency = 1 / gameState.gameTime /10.f;
+            const float enemySize = 8 + gameState.gameTime / 20.0f; 
+            const float enemySpeed = 40 + gameState.gameTime / 10.0f; 
+            gameState.spawnTime += GetFrameTime();
+
+            while (gameState.spawnTime >= spawnFrequency)
+            {
+                if (gameState.enemyCount >= MAX_ENEMIES)
+                {
+                    break;
+                }
+
+                float radians = GetRandomValue(0,360) * PI/180.0f;
+                Vector2 dir = {cosf(radians), sinf(radians)};
+                const float dist = SCREEN_WIDTH / 2.0f ; 
+
+                Enemy enemy = 
+                {
+                    .pos = {gameState.playerPos.x + dir.x * dist, gameState.playerPos.y + dir.y * dist},
+                    .size = enemySize,
+                };
+
+                gameState.Enemies[gameState.enemyCount++] = enemy;
+
+                gameState.spawnTime -= spawnFrequency; 
+            }
+
+            //update enemies 
+
+            for(int enemyIdx =0; enemyIdx < gameState.enemyCount; enemyIdx++)
+            {
+                Enemy* enemy = &gameState.Enemies[enemyIdx];
+
+                Vector2 dir = Vector2Normalize(Vector2Subtract(gameState.playerPos, enemy->pos));
+
+                enemy->pos.x += dir.x * enemySpeed * GetFrameTime();
+                 enemy->pos.y += dir.y * enemySpeed * GetFrameTime();
+
+                 //draw enemy 
+                 DrawCircle(enemy->pos.x, enemy->pos.y, enemySize, RED);
             }
         }
 
