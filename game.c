@@ -1,6 +1,7 @@
-//#define RAYMATH_IMPLEMENTATION
+// #define RAYMATH_IMPLEMENTATION
 #include "raylib.h"
 #include "raymath.h"
+#include <stdio.h>
 
 #define SCREEN_WIDTH (800)
 #define SCREEN_HEIGHT (450)
@@ -38,12 +39,13 @@ typedef struct GameState
     float projSpeed;
     float projSize;
     int projPierce;
+    int killCounter;
 
     int projectileCount;
     Projectile projectiles[MAX_PROJECTILES];
 
     float spawnTime;
-  
+
     int enemyCount;
     Enemy Enemies[MAX_ENEMIES];
 
@@ -60,6 +62,13 @@ static const GameState DefaultState = {
 
 };
 
+void draw_text_centered(const char *text, Vector2 pos, float fontSize)
+{
+    const Vector2 text_size = MeasureTextEx(GetFontDefault(), text, fontSize, 1);
+    pos.x += text_size.x / 2.0f;
+    DrawText(text, pos.x, pos.y, fontSize, WHITE);
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);
@@ -67,14 +76,19 @@ int main(void)
 
     GameState gameState = DefaultState;
 
-//    Texture2D texture = LoadTexture("assets/test.png"); // Check README.md for how this works
+    //    Texture2D texture = LoadTexture("assets/test.png"); // Check README.md for how this works
 
     while (!WindowShouldClose())
     {
-       gameState.gameTime += GetFrameTime();
+        gameState.gameTime += GetFrameTime();
 
         BeginDrawing();
         ClearBackground(BLACK);
+
+        // Draw Kill counter
+        const char killCounterText[100] = {0};
+        sprintf(killCounterText, "KillCounter: %d", gameState.killCounter);
+        draw_text_centered(killCounterText, (Vector2){40, 30}, 20);
 
         // shoot projectile
         {
@@ -90,22 +104,21 @@ int main(void)
                     break;
                 }
 
-                Vector2 dir = Vector2Normalize(Vector2Subtract( GetMousePosition(),gameState.playerPos));
+                Vector2 dir = Vector2Normalize(Vector2Subtract(GetMousePosition(), gameState.playerPos));
 
                 Projectile proj =
                     {
                         .pos = gameState.playerPos,
                         .dir = dir,
                         .size = gameState.projSize,
-                        .speed = gameState.projSpeed
-                    };
+                        .speed = gameState.projSpeed,
+                        .pierce = gameState.projPierce};
                 gameState.projectiles[gameState.projectileCount++] = proj;
 
                 gameState.shootTime -= gameState.shootDelay;
             }
         }
 
-       
         {
             typedef struct Projectile
             {
@@ -123,7 +136,7 @@ int main(void)
                 float size;
             } Enemy;
 
-             // Move the Player
+            // Move the Player
 
             if (IsKeyDown(KEY_A))
             {
@@ -153,17 +166,52 @@ int main(void)
 
                 proj->pos.x += proj->dir.x * proj->speed * GetFrameTime();
                 proj->pos.y += proj->dir.y * proj->speed * GetFrameTime();
- 
+
                 DrawCircle(proj->pos.x, proj->pos.y, proj->size, YELLOW);
+                // collide with enemies
+                for (int enemyIdx = 0; enemyIdx < gameState.enemyCount; enemyIdx++)
+                {
+                    Enemy *enemy = &gameState.Enemies[enemyIdx];
+
+                    if (CheckCollisionCircles(proj->pos, proj->size, enemy->pos, enemy->size))
+                    {
+                        // Replace with last enemy
+                        *enemy = gameState.Enemies[--gameState.enemyCount];
+                        proj->pierce--;
+                        gameState.killCounter++;
+
+                        // scaling
+
+                        if (gameState.killCounter % 10 == 0)
+                        {
+                            gameState.projSpeed += 10;
+                        }
+                        if (gameState.killCounter % 15 == 0)
+                        {
+                            gameState.projSize += 1;
+                        }
+                        if (gameState.killCounter % 20 == 0)
+                        {
+                            gameState.projPierce += 1;
+                        }
+
+                        if (proj->pierce < 0)
+                        {
+                            // replace with the last project tile
+                            *proj = gameState.projectiles[--gameState.projectileCount];
+                        }
+                        break;
+                    }
+                }
             }
         }
 
-        //Update Enemies 
+        // Update Enemies
         {
-            //Spawn Enemies
-            const float spawnFrequency = 1 / gameState.gameTime /10.f;
-            const float enemySize = 8 + gameState.gameTime / 20.0f; 
-            const float enemySpeed = 40 + gameState.gameTime / 10.0f; 
+            // Spawn Enemies
+            const float spawnFrequency = 1 / (gameState.gameTime * .1f);
+            const float enemySize = 8 + gameState.gameTime / 20.0f;
+            const float enemySpeed = 40 + gameState.gameTime / 10.0f;
             gameState.spawnTime += GetFrameTime();
 
             while (gameState.spawnTime >= spawnFrequency)
@@ -173,49 +221,65 @@ int main(void)
                     break;
                 }
 
-                float radians = GetRandomValue(0,360) * PI/180.0f;
+                float radians = GetRandomValue(0, 360) * PI / 180.0f;
                 Vector2 dir = {cosf(radians), sinf(radians)};
-                const float dist = SCREEN_WIDTH / 2.0f ; 
+                const float dist = SCREEN_WIDTH / 2.0f;
 
-                Enemy enemy = 
-                {
-                    .pos = {gameState.playerPos.x + dir.x * dist, gameState.playerPos.y + dir.y * dist},
-                    .size = enemySize,
-                };
+                Enemy enemy =
+                    {
+                        .pos = {gameState.playerPos.x + dir.x * dist, gameState.playerPos.y + dir.y * dist},
+                        .size = enemySize,
+                    };
 
                 gameState.Enemies[gameState.enemyCount++] = enemy;
 
-                gameState.spawnTime -= spawnFrequency; 
+                gameState.spawnTime -= spawnFrequency;
             }
 
-            //update enemies 
+            // update enemies
 
-            for(int enemyIdx =0; enemyIdx < gameState.enemyCount; enemyIdx++)
+            for (int enemyIdx = 0; enemyIdx < gameState.enemyCount; enemyIdx++)
             {
-                Enemy* enemy = &gameState.Enemies[enemyIdx];
+                Enemy *enemy = &gameState.Enemies[enemyIdx];
 
                 Vector2 dir = Vector2Normalize(Vector2Subtract(gameState.playerPos, enemy->pos));
 
                 enemy->pos.x += dir.x * enemySpeed * GetFrameTime();
-                 enemy->pos.y += dir.y * enemySpeed * GetFrameTime();
+                enemy->pos.y += dir.y * enemySpeed * GetFrameTime();
 
-                 //draw enemy 
-                 DrawCircle(enemy->pos.x, enemy->pos.y, enemySize, RED);
+                // draw enemy
+                DrawCircle(enemy->pos.x, enemy->pos.y, enemySize, RED);
+
+                // Touch player to restart the game
+                if (CheckCollisionCircles(enemy->pos, enemy->size, gameState.playerPos, gameState.playerSize))
+                {
+
+                    
+                     gameState.playerSize -= 2;
+                    if (gameState.playerSize < 0)
+                    {
+                        gameState = DefaultState;
+                       
+                    }
+                     *enemy = gameState.Enemies[--gameState.enemyCount];
+                   
+                }
             }
+
+            // const int texture_x = SCREEN_WIDTH / 2 - texture.width / 2;
+            // const int texture_y = SCREEN_HEIGHT / 2 - texture.height / 2;
+            // DrawTexture(texture, texture_x, texture_y, WHITE);
+
+            // const char* text = "OMG! IT WORKS!";
+            // const Vector2 text_size = MeasureTextEx(GetFontDefault(), text, 20, 1);
+            // DrawText(text, SCREEN_WIDTH / 2 - text_size.x / 2, texture_y + texture.height + text_size.y + 10, 20, BLACK);
+
+            EndDrawing();
         }
 
-        // const int texture_x = SCREEN_WIDTH / 2 - texture.width / 2;
-        // const int texture_y = SCREEN_HEIGHT / 2 - texture.height / 2;
-        // DrawTexture(texture, texture_x, texture_y, WHITE);
-
-        // const char* text = "OMG! IT WORKS!";
-        // const Vector2 text_size = MeasureTextEx(GetFontDefault(), text, 20, 1);
-        // DrawText(text, SCREEN_WIDTH / 2 - text_size.x / 2, texture_y + texture.height + text_size.y + 10, 20, BLACK);
-
-        EndDrawing();
+        
     }
-
     CloseWindow();
 
-    return 0;
+        return 0;
 }

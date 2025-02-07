@@ -15,4 +15,10 @@ CMakeFiles/game.dir/game.c.o: /home/gamakor/Projects/FirstGame/game.c \
  /usr/include/bits/floatn-common.h /usr/include/bits/flt-eval-method.h \
  /usr/include/bits/fp-logb.h /usr/include/bits/fp-fast.h \
  /usr/include/bits/mathcalls-helper-functions.h \
- /usr/include/bits/mathcalls.h
+ /usr/include/bits/mathcalls.h /usr/include/stdio.h \
+ /usr/lib/gcc/x86_64-redhat-linux/14/include/stddef.h \
+ /usr/include/bits/types/__fpos_t.h /usr/include/bits/types/__mbstate_t.h \
+ /usr/include/bits/types/__fpos64_t.h /usr/include/bits/types/__FILE.h \
+ /usr/include/bits/types/FILE.h /usr/include/bits/types/struct_FILE.h \
+ /usr/include/bits/types/cookie_io_functions_t.h \
+ /usr/include/bits/stdio_lim.h
